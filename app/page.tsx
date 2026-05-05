@@ -28,6 +28,19 @@ interface Analysis {
     blush: string;
   };
   stylingTips: string[];
+  colorCombinations?: { name: string; colors: { hex: string; name: string }[]; description: string; occasion: string }[];
+  patternGuide?: {
+    recommended: { pattern: string; why: string }[];
+    avoid: { pattern: string; why: string }[];
+    tip: string;
+  };
+  wardrobeCapsule?: { piece: string; colorHex: string; colorName: string; why: string }[];
+  occasionPalettes?: {
+    work: { colors: { hex: string; name: string }[]; tip: string };
+    casual: { colors: { hex: string; name: string }[]; tip: string };
+    evening: { colors: { hex: string; name: string }[]; tip: string };
+  };
+  colorRatioTip?: string;
   celebrities: string[];
 }
 

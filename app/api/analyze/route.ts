@@ -65,6 +65,66 @@ Return ONLY a valid JSON object (no markdown, no code blocks) with this exact st
     "tip 3",
     "tip 4"
   ],
+  "colorCombinations": [
+    { "name": "Combination name 1", "colors": [{ "hex": "#hex1", "name": "Name1" }, { "hex": "#hex2", "name": "Name2" }, { "hex": "#hex3", "name": "Name3" }], "description": "Description 1", "occasion": "casual" },
+    { "name": "Combination name 2", "colors": [{ "hex": "#hex1", "name": "Name1" }, { "hex": "#hex2", "name": "Name2" }, { "hex": "#hex3", "name": "Name3" }], "description": "Description 2", "occasion": "work" },
+    { "name": "Combination name 3", "colors": [{ "hex": "#hex1", "name": "Name1" }, { "hex": "#hex2", "name": "Name2" }, { "hex": "#hex3", "name": "Name3" }], "description": "Description 3", "occasion": "evening" },
+    { "name": "Combination name 4", "colors": [{ "hex": "#hex1", "name": "Name1" }, { "hex": "#hex2", "name": "Name2" }, { "hex": "#hex3", "name": "Name3" }], "description": "Description 4", "occasion": "weekend" },
+    { "name": "Combination name 5", "colors": [{ "hex": "#hex1", "name": "Name1" }, { "hex": "#hex2", "name": "Name2" }, { "hex": "#hex3", "name": "Name3" }], "description": "Description 5", "occasion": "casual" }
+  ],
+  "patternGuide": {
+    "recommended": [
+      { "pattern": "Pattern name 1", "why": "Reason 1" },
+      { "pattern": "Pattern name 2", "why": "Reason 2" },
+      { "pattern": "Pattern name 3", "why": "Reason 3" },
+      { "pattern": "Pattern name 4", "why": "Reason 4" }
+    ],
+    "avoid": [
+      { "pattern": "Pattern name 1", "why": "Reason 1" },
+      { "pattern": "Pattern name 2", "why": "Reason 2" }
+    ],
+    "tip": "one key pattern tip for this season type"
+  },
+  "wardrobeCapsule": [
+    { "piece": "Piece 1 name", "colorHex": "#hexcode", "colorName": "Color name", "why": "Why essential" },
+    { "piece": "Piece 2 name", "colorHex": "#hexcode", "colorName": "Color name", "why": "Why essential" },
+    { "piece": "Piece 3 name", "colorHex": "#hexcode", "colorName": "Color name", "why": "Why essential" },
+    { "piece": "Piece 4 name", "colorHex": "#hexcode", "colorName": "Color name", "why": "Why essential" },
+    { "piece": "Piece 5 name", "colorHex": "#hexcode", "colorName": "Color name", "why": "Why essential" },
+    { "piece": "Piece 6 name", "colorHex": "#hexcode", "colorName": "Color name", "why": "Why essential" },
+    { "piece": "Piece 7 name", "colorHex": "#hexcode", "colorName": "Color name", "why": "Why essential" },
+    { "piece": "Piece 8 name", "colorHex": "#hexcode", "colorName": "Color name", "why": "Why essential" }
+  ],
+  "occasionPalettes": {
+    "work": {
+      "colors": [
+        { "hex": "#hexcode", "name": "Color Name" },
+        { "hex": "#hexcode", "name": "Color Name" },
+        { "hex": "#hexcode", "name": "Color Name" },
+        { "hex": "#hexcode", "name": "Color Name" }
+      ],
+      "tip": "one sentence styling tip for work"
+    },
+    "casual": {
+      "colors": [
+        { "hex": "#hexcode", "name": "Color Name" },
+        { "hex": "#hexcode", "name": "Color Name" },
+        { "hex": "#hexcode", "name": "Color Name" },
+        { "hex": "#hexcode", "name": "Color Name" }
+      ],
+      "tip": "one sentence styling tip for casual"
+    },
+    "evening": {
+      "colors": [
+        { "hex": "#hexcode", "name": "Color Name" },
+        { "hex": "#hexcode", "name": "Color Name" },
+        { "hex": "#hexcode", "name": "Color Name" },
+        { "hex": "#hexcode", "name": "Color Name" }
+      ],
+      "tip": "one sentence styling tip for evening"
+    }
+  },
+  "colorRatioTip": "Explain the 60/30/10 color ratio rule applied to this specific palette (which color as 60%, which as 30%, which as 10%)",
   "celebrities": ["Celebrity 1", "Celebrity 2", "Celebrity 3"]
 }`;
 
@@ -81,13 +141,17 @@ function callClaudeCli(imageBase64: string, mediaType: string): Promise<string> 
       },
     });
 
+    // Strip ANTHROPIC_API_KEY so the claude CLI uses its own keychain OAuth credentials
+    const { ANTHROPIC_API_KEY: _removed, ...cleanEnv } = process.env;
+    void _removed;
+
     const proc = spawn("claude", [
       "-p",
       "--input-format", "stream-json",
       "--output-format", "stream-json",
       "--verbose",
       "--dangerously-skip-permissions",
-    ]);
+    ], { env: cleanEnv as NodeJS.ProcessEnv });
 
     let stdout = "";
     let stderr = "";
