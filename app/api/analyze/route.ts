@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { spawn } from "child_process";
+import Anthropic from "@anthropic-ai/sdk";
 
 const PROMPT = `You are a professional color analysis expert and personal stylist. Analyze this person's photo and provide a detailed personal color palette analysis.
 
@@ -128,7 +129,27 @@ Return ONLY a valid JSON object (no markdown, no code blocks) with this exact st
   "celebrities": ["Celebrity 1", "Celebrity 2", "Celebrity 3"]
 }`;
 
-function callClaudeCli(imageBase64: string, mediaType: string): Promise<string> {
+// ── SDK path (Vercel / any env with ANTHROPIC_API_KEY set) ──────────────────
+async function callWithSdk(imageBase64: string, mediaType: string): Promise<string> {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const message = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 4096,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "image", source: { type: "base64", media_type: mediaType as "image/jpeg" | "image/png" | "image/webp" | "image/gif", data: imageBase64 } },
+        { type: "text", text: PROMPT },
+      ],
+    }],
+  });
+  const block = message.content[0];
+  if (block.type !== "text") throw new Error("Unexpected response type from SDK");
+  return block.text;
+}
+
+// ── CLI path (local dev — uses keychain OAuth, no API key needed) ────────────
+function callWithCli(imageBase64: string, mediaType: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const input = JSON.stringify({
       type: "user",
@@ -141,9 +162,9 @@ function callClaudeCli(imageBase64: string, mediaType: string): Promise<string> 
       },
     });
 
-    // Strip ANTHROPIC_API_KEY so the claude CLI uses its own keychain OAuth credentials
-    const { ANTHROPIC_API_KEY: _removed, ...cleanEnv } = process.env;
-    void _removed;
+    // Strip ANTHROPIC_API_KEY so the CLI uses its own keychain OAuth credentials
+    const { ANTHROPIC_API_KEY: _dropped, ...cleanEnv } = process.env;
+    void _dropped;
 
     const proc = spawn("claude", [
       "-p",
@@ -164,31 +185,18 @@ function callClaudeCli(imageBase64: string, mediaType: string): Promise<string> 
         reject(new Error(`claude CLI exited ${code}: ${stderr.slice(0, 300)}`));
         return;
       }
-
-      // Parse stream-json lines to find the result
       for (const line of stdout.split("\n")) {
         if (!line.trim()) continue;
         try {
           const event = JSON.parse(line);
-          if (event.type === "result" && !event.is_error) {
-            resolve(event.result as string);
-            return;
-          }
-          if (event.type === "result" && event.is_error) {
-            reject(new Error(event.result || "Claude CLI returned an error"));
-            return;
-          }
-        } catch {
-          // skip non-JSON lines
-        }
+          if (event.type === "result" && !event.is_error) { resolve(event.result as string); return; }
+          if (event.type === "result" && event.is_error) { reject(new Error(event.result || "CLI error")); return; }
+        } catch { /* skip non-JSON */ }
       }
-
-      reject(new Error("No result found in claude CLI output"));
+      reject(new Error("No result in claude CLI output"));
     });
 
-    proc.on("error", (err) => reject(err));
-
-    // Write input and close stdin
+    proc.on("error", (err) => reject(new Error(`Failed to spawn claude CLI: ${err.message}`)));
     proc.stdin.write(input);
     proc.stdin.end();
   });
@@ -197,12 +205,14 @@ function callClaudeCli(imageBase64: string, mediaType: string): Promise<string> 
 export async function POST(req: NextRequest) {
   try {
     const { imageBase64, mediaType } = await req.json();
-
     if (!imageBase64 || !mediaType) {
       return NextResponse.json({ error: "Missing image data" }, { status: 400 });
     }
 
-    const rawText = await callClaudeCli(imageBase64, mediaType);
+    // Use SDK when API key is present (production/Vercel), CLI otherwise (local dev)
+    const rawText = process.env.ANTHROPIC_API_KEY
+      ? await callWithSdk(imageBase64, mediaType)
+      : await callWithCli(imageBase64, mediaType);
 
     const analysisText = rawText.trim()
       .replace(/^```json\s*/i, "")
